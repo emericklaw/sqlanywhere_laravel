@@ -4,7 +4,7 @@ Laravel database driver for SAP SQL Anywhere, built on [`emericklaw/sqlanywhere-
 
 ## Requirements
 
-- PHP >= 8.3, Laravel 10 or 11
+- PHP >= 1, Laravel 10+
 - `ext-sqlanywhere` built and loaded
 
 ## Setup
