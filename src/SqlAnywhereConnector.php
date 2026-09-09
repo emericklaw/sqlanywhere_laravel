@@ -66,7 +66,7 @@ final class SqlAnywhereConnector implements ConnectorInterface
             $pairs['CHARSET'] = $config['charset'];
         }
 
-        foreach ($config['options'] ?? [] as $key => $value) {
+        foreach ($this->resolveOptionsArray($config) as $key => $value) {
             if (is_string($key)) {
                 $pairs[$key] = $value;
             }
@@ -88,12 +88,27 @@ final class SqlAnywhereConnector implements ConnectorInterface
     {
         $options = [];
 
-        foreach ($config['options'] ?? [] as $key => $value) {
+        foreach ($this->resolveOptionsArray($config) as $key => $value) {
             if (is_int($key)) {
                 $options[$key] = $value;
             }
         }
 
         return array_diff_key($this->defaultOptions, $options) + $options;
+    }
+
+    /**
+     * $config['options'] is expected to be an array, but `??` only catches
+     * null/undefined — a config value resolved from something like
+     * env('DB_OPTIONS', '') can come through as an empty string instead,
+     * which crashes a bare foreach. Tolerate anything non-array as empty.
+     *
+     * @return array<int|string, mixed>
+     */
+    protected function resolveOptionsArray(array $config): array
+    {
+        $options = $config['options'] ?? [];
+
+        return is_array($options) ? $options : [];
     }
 }
