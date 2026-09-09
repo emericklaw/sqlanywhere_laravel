@@ -1,0 +1,42 @@
+{
+    "name": "emericklaw/sqlanywhere-laravel",
+    "description": "Laravel database driver for SAP SQL Anywhere, built on emericklaw/sqlanywhere-pdo",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "emericklaw/sqlanywhere-pdo": "@dev",
+        "illuminate/database": "^10.0|^11.0",
+        "illuminate/support": "^10.0|^11.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "EmerickLaw\\SqlAnywhereLaravel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "EmerickLaw\\SqlAnywhereLaravel\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "EmerickLaw\\SqlAnywhereLaravel\\SqlAnywhereServiceProvider"
+            ]
+        }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../lib_sqlanywhere_pdo"
+        }
+    ],
+    "scripts": {
+        "test": "phpunit"
+    }
+}
