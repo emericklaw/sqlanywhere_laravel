@@ -16,12 +16,16 @@ final class SqlAnywhereConnection extends Connection
 {
     protected function getDefaultQueryGrammar(): QueryGrammar
     {
-        return $this->withTablePrefix(new SqlAnywhereGrammar($this));
+        // Illuminate\Database\Connection::withTablePrefix() doesn't exist
+        // on Laravel 12 — the grammar already holds $this (the Connection)
+        // via its constructor and can read the table prefix from it
+        // directly, so no separate setter-injection step is needed.
+        return new SqlAnywhereGrammar($this);
     }
 
     protected function getDefaultSchemaGrammar(): SchemaGrammar
     {
-        return $this->withTablePrefix(new SqlAnywhereSchemaGrammar($this));
+        return new SqlAnywhereSchemaGrammar($this);
     }
 
     protected function getDefaultPostProcessor(): Processor
