@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "php": ">=8.1",
-        "emericklaw/sqlanywhere-pdo": "@dev",
+        "emericklaw/sqlanywhere-pdo": "^1.0",
         "illuminate/database": "^10.0|^11.0",
         "illuminate/support": "^10.0|^11.0"
     },
