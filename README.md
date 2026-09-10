@@ -42,6 +42,12 @@ Connection resolution (`DB::connection('sqlanywhere')`), query builder round tri
 
 One real bug found and fixed this way: `SqlAnywhereConnector` built connection strings with a separate `PORT=` key and later with `SERVER=host:port` — neither is valid. SQL Anywhere's `SERVER=` names the database *engine*, not a host/port pair; network host/port go through `LINKS=TCPIP(host=...;port=...)` instead. Fixed, with `server` added as an optional connection config key for the engine name.
 
+## Horizon / `queue:work` deadlocks (fixed automatically)
+
+SAP's closed-source SQL Anywhere client library doesn't tolerate PHP's `pcntl_async_signals(true)` — which Laravel's queue `Worker` enables only in daemon mode (`queue:work`, including everything Horizon runs), never in `--once` mode (what `queue:listen` spawns per job). With async signals on, a signal can interrupt execution mid-syscall inside this package's `sasql_*` calls, and the client library's internal blocking wait doesn't recover from that — it hangs forever on the next `prepare()`/`execute()` on that connection. This reproduces reliably under Horizon/`queue:work` and never under `queue:listen` or `tinker`, regardless of how many jobs have run — it's not a resource leak, it's this specific interaction.
+
+`SqlAnywhereServiceProvider::boot()` registers `Queue::before()`/`Queue::after()` listeners that disable async signals for the duration of each job and re-enable them between jobs, automatically, for any app using this package — no per-job workaround needed.
+
 ## Testing
 
 ```
