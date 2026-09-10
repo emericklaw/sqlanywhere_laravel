@@ -69,6 +69,22 @@ class SqlAnywhereGrammar extends Grammar
         return 'RAND()';
     }
 
+    /**
+     * The base Grammar compiles Builder::exists() as
+     * `select exists(select ...) as "exists"` — EXISTS used as a
+     * scalar value directly in the SELECT list. SQL Anywhere only
+     * accepts EXISTS as a predicate (inside WHERE/HAVING/CASE WHEN),
+     * not as a select-list expression, and rejects that form with
+     * "Syntax error near 'exists'" (confirmed against a live server).
+     * Wrapping it in a CASE WHEN keeps EXISTS in predicate position.
+     */
+    public function compileExists(Builder $query)
+    {
+        $select = $this->compileSelect($query);
+
+        return "select case when exists({$select}) then 1 else 0 end as {$this->wrap('exists')}";
+    }
+
     protected function dateBasedWhere($type, Builder $query, $where)
     {
         $value = $this->parameter($where['value']);

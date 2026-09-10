@@ -54,4 +54,15 @@ final class SqlAnywhereGrammarTest extends TestCase
 
         self::assertSame('select * from "users"', $sql);
     }
+
+    public function test_exists_compiles_to_case_when_instead_of_select_exists_as(): void
+    {
+        $query = $this->makeBuilder()->from('users')->where('id', 1);
+        $sql = $query->getGrammar()->compileExists($query);
+
+        self::assertSame(
+            'select case when exists(select * from "users" where "id" = ?) then 1 else 0 end as "exists"',
+            $sql,
+        );
+    }
 }
