@@ -92,9 +92,14 @@ class SqlAnywhereSchemaGrammar extends Grammar
 
     public function compileDropIfExists(Blueprint $blueprint, Fluent $command): string
     {
-        return 'if exists (select 1 from SYS.SYSTABLE where table_name = '
+        // A bare "if ... then ... end if" is a procedural (SQL/PSM)
+        // statement — SQL Anywhere only accepts it inside a compound
+        // BEGIN...END block, not as a standalone statement submitted
+        // directly through prepare()/exec(). Wrapping it as an anonymous
+        // block is what makes this actually executable as one statement.
+        return 'begin if exists (select 1 from SYS.SYSTABLE where table_name = '
             . $this->quoteString($this->tablePrefix . $blueprint->getTable())
-            . ') then drop table ' . $this->wrapTable($blueprint) . ' end if';
+            . ') then drop table ' . $this->wrapTable($blueprint) . ' end if end';
     }
 
     public function compileRename(Blueprint $blueprint, Fluent $command): string

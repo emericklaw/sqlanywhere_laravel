@@ -54,7 +54,23 @@ final class SqlAnywhereServiceProvider extends ServiceProvider
             pcntl_async_signals(false);
         });
 
+        // Queue::after() hooks the JobProcessed event, which
+        // Worker::process() only raises AFTER $job->fire() returns
+        // normally — a thrown exception (the job failing, retrying, or
+        // hitting its timeout) skips straight to the catch block and
+        // that event never fires. Relying on after() alone means a
+        // single failing job leaves async signals permanently disabled
+        // for every later job on that worker until it's restarted,
+        // silently defeating Horizon's own timeout/graceful-shutdown
+        // signal handling from that point on. Queue::looping() fires at
+        // the top of every loop iteration regardless of how the previous
+        // job ended, so it's the actual safety net; after() is kept too
+        // since it re-enables sooner on the (normal) success path.
         Queue::after(function (): void {
+            pcntl_async_signals(true);
+        });
+
+        Queue::looping(function (): void {
             pcntl_async_signals(true);
         });
     }
