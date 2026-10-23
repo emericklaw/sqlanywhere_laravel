@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace EmerickLaw\SqlAnywhereLaravel\Schema;
 
-use Illuminate\Database\Connection;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Grammars\Grammar;
 use Illuminate\Support\Fluent;
@@ -32,42 +31,75 @@ class SqlAnywhereSchemaGrammar extends Grammar
 
     protected $serials = ['bigInteger', 'integer', 'mediumInteger', 'smallInteger', 'tinyInteger'];
 
-    public function compileTableExists($schema = null, $table = null): string
+    /**
+     * Laravel 11+ treats any returned row as "table exists" (hasTable()
+     * does count($rows) > 0), so this must return zero rows when the table
+     * is absent — an aggregate like count(*) always returns one row.
+     */
+    public function compileTableExists($schema, $table): string
     {
-        $table = $table ?? $schema;
-
-        return "select count(*) from SYS.SYSTABLE where table_name = " . $this->quoteString($table);
+        return 'select 1 from SYS.SYSTABLE where table_name = '
+            . $this->quoteString($this->connection->getTablePrefix() . $table)
+            . $this->schemaFilter($schema);
     }
 
-    public function compileTables(): string
+    public function compileTables($schema): string
     {
-        return 'select table_name as name from SYS.SYSTABLE where creator != 0 order by table_name';
+        return 'select t.table_name as name, u.user_name as "schema" '
+            . 'from SYS.SYSTABLE t join SYS.SYSUSER u on u.user_id = t.creator '
+            . 'where t.creator != 0'
+            . $this->schemaFilter($schema)
+            . ' order by t.table_name';
     }
 
-    public function compileColumns($table): string
+    public function compileColumns($schema, $table): string
     {
-        return 'select c.column_name as name, c.domain_id as type_id, '
-            . "c.nulls as nullable, c.\"default\" as \"default\" "
-            . 'from SYS.SYSTABCOL c join SYS.SYSTABLE t on t.table_id = c.table_id '
-            . 'where t.table_name = ' . $this->quoteString($this->tablePrefix . $table)
+        return 'select c.column_name as name, d.domain_name as type_name, d.domain_name as type, '
+            . 'c.nulls as nullable, c."default" as "default" '
+            . 'from SYS.SYSTABCOL c '
+            . 'join SYS.SYSTABLE t on t.table_id = c.table_id '
+            . 'join SYS.SYSDOMAIN d on d.domain_id = c.domain_id '
+            . 'where t.table_name = ' . $this->quoteString($this->connection->getTablePrefix() . $table)
+            . $this->schemaFilter($schema)
             . ' order by c.column_id';
     }
 
-    public function compileIndexes($table): string
+    public function compileIndexes($schema, $table): string
     {
         return 'select i.index_name as name '
             . 'from SYS.SYSIDX i join SYS.SYSTABLE t on t.table_id = i.table_id '
-            . 'where t.table_name = ' . $this->quoteString($this->tablePrefix . $table);
+            . 'where t.table_name = ' . $this->quoteString($this->connection->getTablePrefix() . $table)
+            . $this->schemaFilter($schema);
     }
 
-    public function compileForeignKeys($table): string
+    public function compileForeignKeys($schema, $table): string
     {
         return 'select fk.role as name '
             . 'from SYS.SYSFOREIGNKEY fk join SYS.SYSTABLE t on t.table_id = fk.foreign_table_id '
-            . 'where t.table_name = ' . $this->quoteString($this->tablePrefix . $table);
+            . 'where t.table_name = ' . $this->quoteString($this->connection->getTablePrefix() . $table)
+            . $this->schemaFilter($schema);
     }
 
-    public function compileCreate(Blueprint $blueprint, Fluent $command, Connection $connection): string
+    /**
+     * Optional owner filter. Schema names (owners) are only applied when
+     * the caller passes one; the table is aliased `t` in every query above.
+     *
+     * @param string|string[]|null $schema
+     */
+    protected function schemaFilter($schema): string
+    {
+        $schemas = array_filter((array) $schema, static fn ($s) => $s !== null && $s !== '');
+
+        if ($schemas === []) {
+            return '';
+        }
+
+        return ' and t.creator in (select user_id from SYS.SYSUSER where user_name in ('
+            . implode(', ', array_map(fn ($s) => $this->quoteString($s), $schemas))
+            . '))';
+    }
+
+    public function compileCreate(Blueprint $blueprint, Fluent $command): string
     {
         return sprintf(
             'create table %s (%s)',
@@ -98,7 +130,7 @@ class SqlAnywhereSchemaGrammar extends Grammar
         // directly through prepare()/exec(). Wrapping it as an anonymous
         // block is what makes this actually executable as one statement.
         return 'begin if exists (select 1 from SYS.SYSTABLE where table_name = '
-            . $this->quoteString($this->tablePrefix . $blueprint->getTable())
+            . $this->quoteString($this->connection->getTablePrefix() . $blueprint->getTable())
             . ') then drop table ' . $this->wrapTable($blueprint) . ' end if end';
     }
 
