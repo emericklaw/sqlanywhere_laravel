@@ -49,6 +49,23 @@ final class SqlAnywhereConnectionTest extends TestCase
         self::assertTrue($this->causedByLostConnection('Connection was terminated by the server'));
     }
 
+    public function test_failed_connect_is_detected_as_lost_connection(): void
+    {
+        self::assertTrue($this->causedByLostConnection('Unable to connect to SQL Anywhere.'));
+    }
+
+    public function test_sqlstate_class_08_is_detected_as_lost_connection(): void
+    {
+        $connection = new SqlAnywhereConnection(new PDO('sqlite::memory:'));
+        $method = new ReflectionMethod($connection, 'causedByLostConnection');
+        $method->setAccessible(true);
+
+        $e = new PDOException('Server not found');
+        $e->errorInfo = ['08001', null, 'Server not found'];
+
+        self::assertTrue($method->invoke($connection, $e));
+    }
+
     public function test_unrelated_message_is_not_detected_as_lost_connection(): void
     {
         self::assertFalse($this->causedByLostConnection('Syntax error near "SELCT"'));
